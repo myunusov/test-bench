@@ -11,6 +11,8 @@ networks:
 volumes:
   prometheus_data: {}
   grafana_data: {}
+  es01:
+    driver: local
 
 services:
 
@@ -19,6 +21,14 @@ services:
     restart: always
     networks:
       - test-bench.srv.network
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.logback.user
 
   gateway:
     build: ../gateway
@@ -30,6 +40,15 @@ services:
       - test-bench.srv.network
     ports:
       - 8081:8080
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.logback.gateway
+
 
   prometheus:
     image: prom/prometheus
@@ -77,18 +96,18 @@ services:
       - test-bench.metrics.network
     restart: always
 
-#  alertmanager:
-#    image: prom/alertmanager
-#    ports:
-#      - 8104:9093
-#    volumes:
-#      - ./alertmanager/:/etc/alertmanager/
-#    networks:
-#      - test-bench.metrics.network
-#    restart: always
-#    command:
-#      - '--config.file=/etc/alertmanager/config.yml'
-#      - '--storage.path=/alertmanager'
+  alertmanager:
+    image: prom/alertmanager
+    ports:
+      - 8104:9093
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    networks:
+      - test-bench.metrics.network
+    restart: always
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
 
   node-exporter:
     image: prom/node-exporter
@@ -107,3 +126,67 @@ services:
       - test-bench.srv.network
       - test-bench.metrics.network
     restart: always
+
+
+  elasticsearch:
+    image: elasticsearch:7.6.0
+    expose:
+      - 9200
+    networks:
+      - test-bench.elk.network
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - cluster.initial_master_nodes=es01
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es01:/usr/share/elasticsearch/data
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.efk.elasticsearch
+
+  kibana:
+    image: kibana:7.6.0
+    networks:
+      - test-bench.elk.network
+    links:
+      - "elasticsearch"
+    ports:
+      - "8106:5601"
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.efk.kibana
+
+  fluentd:
+    build: ../fluentd
+    links:
+      - "elasticsearch"
+    networks:
+      - test-bench.srv.network
+      - test-bench.elk.network
+    volumes:
+      - ./fluentd/:/fluentd/etc/
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1G"
+        max-file: "2"
