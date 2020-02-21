@@ -1,6 +1,8 @@
 version: "3.7"
 
 networks:
+  test-bench.db.network:
+    driver: bridge
   test-bench.srv.network:
     driver: bridge
   test-bench.elk.network:
@@ -13,14 +15,34 @@ volumes:
   grafana_data: {}
   es01:
     driver: local
+  postgresql: {}
+  postgresql_data: {}
 
 services:
+
+  postgres:
+    image: postgres
+    networks:
+      - test-bench.db.network
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgresql:/var/lib/postgresql
+      # This needs explicit mapping due to https://github.com/docker-library/postgres/blob/4e48e3228a30763913ece952c611e5e9b95c8759/Dockerfile.template#L52
+      - postgresql_data:/var/lib/postgresql/data
 
   user:
     build: ../user
     restart: always
     networks:
       - test-bench.srv.network
+      - test-bench.db.network
+    links:
+      - "postgres"
     logging:
       driver: "fluentd"
       options:
@@ -233,6 +255,6 @@ services:
       - STORAGE_TYPE=elasticsearch
       - ES_HOSTS=elasticsearch
       # Uncomment to see dependency processing logs
-      # - ZIPKIN_LOG_LEVEL=DEBUG
+      - ZIPKIN_LOG_LEVEL=DEBUG
       # Uncomment to adjust memory used by the dependencies job
       # - JAVA_OPTS=-verbose:gc -Xms1G -Xmx1G
