@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: urls-config
+  namespace: test-bench
 data:
   BACKEND_URL: "http://user:8080/"
 
@@ -11,6 +12,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: msvc-secret
+  namespace: test-bench
 type: Opaque
 stringData:
   secret: secret
@@ -23,6 +25,7 @@ metadata:
   labels:
     tier: user
   name: user
+  namespace: test-bench
 spec:
   ports:
     - port: 8080
@@ -39,6 +42,7 @@ metadata:
   labels:
     tier: gateway
   name: gateway
+  namespace: test-bench
 spec:
   ports:
     - nodePort: 30500
@@ -55,6 +59,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user
+  namespace: test-bench
   labels:
     tier: user
     app: microservices
@@ -102,6 +107,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gateway
+  namespace: test-bench
   labels:
     tier: gateway
     app: microservices
