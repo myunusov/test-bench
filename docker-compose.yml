@@ -43,14 +43,14 @@ services:
       - test-bench.db.network
     links:
       - "postgres"
-    logging:
-      driver: "fluentd"
-      options:
-        fluentd-address: localhost:24224
-        fluentd-async-connect: 'true'
-        fluentd-retry-wait: '1s'
-        fluentd-max-retries: '30'
-        tag: service.logback.user
+#    logging:
+#      driver: "fluentd"
+#      options:
+#        fluentd-address: localhost:24224
+#        fluentd-async-connect: 'true'
+#        fluentd-retry-wait: '1s'
+#        fluentd-max-retries: '30'
+#        tag: service.logback.user
 
   gateway:
     build: ../gateway
