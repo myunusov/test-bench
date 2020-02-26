@@ -13,15 +13,19 @@ networks:
 volumes:
   prometheus_data: {}
   grafana_data: {}
-  es01:
-    driver: local
+  es01: {}
   postgresql: {}
   postgresql_data: {}
 
 services:
 
+  redis:
+    image: redis
+    networks:
+      - test-bench.db.network
+
   postgres:
-    image: postgres
+    build: ../postgres
     networks:
       - test-bench.db.network
     restart: always
@@ -43,14 +47,14 @@ services:
       - test-bench.db.network
     links:
       - "postgres"
-#    logging:
-#      driver: "fluentd"
-#      options:
-#        fluentd-address: localhost:24224
-#        fluentd-async-connect: 'true'
-#        fluentd-retry-wait: '1s'
-#        fluentd-max-retries: '30'
-#        tag: service.logback.user
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.logback.user
 
   gateway:
     build: ../gateway
@@ -258,3 +262,53 @@ services:
       - ZIPKIN_LOG_LEVEL=DEBUG
       # Uncomment to adjust memory used by the dependencies job
       # - JAVA_OPTS=-verbose:gc -Xms1G -Xmx1G
+
+  sentry:
+    image: sentry
+    links:
+      - redis
+      - postgres
+    ports:
+      - 9000:9000
+    restart: always
+    networks:
+      - test-bench.srv.network
+      - test-bench.db.network
+    environment:
+      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_POSTGRES_HOST: postgres
+      SENTRY_DB_USER: admin
+      SENTRY_DB_PASSWORD: password
+      SENTRY_REDIS_HOST: redis
+
+  sentry_celery_beat:
+    image: sentry:latest
+    depends_on:
+      - redis
+      - postgres
+    command: "sentry run cron"
+    networks:
+      - test-bench.srv.network
+      - test-bench.db.network
+    environment:
+      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_POSTGRES_HOST: postgres
+      SENTRY_DB_USER: admin
+      SENTRY_DB_PASSWORD: password
+      SENTRY_REDIS_HOST: redis
+
+  sentry_celery_worker:
+    image: sentry:latest
+    depends_on:
+      - redis
+      - postgres
+    command: "sentry run worker"
+    networks:
+      - test-bench.srv.network
+      - test-bench.db.network
+    environment:
+      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_POSTGRES_HOST: postgres
+      SENTRY_DB_USER: admin
+      SENTRY_DB_PASSWORD: password
+      SENTRY_REDIS_HOST: redis
