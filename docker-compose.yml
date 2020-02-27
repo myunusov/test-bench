@@ -1,6 +1,8 @@
 version: "3.7"
 
 networks:
+  test-bench.gw.network:
+    driver: bridge
   test-bench.db.network:
     driver: bridge
   test-bench.srv.network:
@@ -263,6 +265,7 @@ services:
       # Uncomment to adjust memory used by the dependencies job
       # - JAVA_OPTS=-verbose:gc -Xms1G -Xmx1G
 
+#https://gist.github.com/jensens/00f329c292fcb68861ec53abc453c5c7
   sentry:
     image: sentry
     links:
@@ -275,13 +278,16 @@ services:
       - test-bench.srv.network
       - test-bench.db.network
     environment:
-      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
       SENTRY_POSTGRES_HOST: postgres
-      SENTRY_DB_USER: admin
-      SENTRY_DB_PASSWORD: password
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
+#    command: sentry upgrade
+#    admin: password
 
-  sentry_celery_beat:
+  sentry_cron:
     image: sentry:latest
     depends_on:
       - redis
@@ -291,13 +297,14 @@ services:
       - test-bench.srv.network
       - test-bench.db.network
     environment:
-      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
       SENTRY_POSTGRES_HOST: postgres
-      SENTRY_DB_USER: admin
-      SENTRY_DB_PASSWORD: password
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
 
-  sentry_celery_worker:
+  sentry_worker:
     image: sentry:latest
     depends_on:
       - redis
@@ -307,8 +314,66 @@ services:
       - test-bench.srv.network
       - test-bench.db.network
     environment:
-      SENTRY_SECRET_KEY: '!!!SECRET!!!'
+      SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
       SENTRY_POSTGRES_HOST: postgres
-      SENTRY_DB_USER: admin
-      SENTRY_DB_PASSWORD: password
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
+
+  kong:
+    build: ../kong
+    restart: always
+    networks:
+      - test-bench.gw.network
+      - test-bench.srv.network
+      - test-bench.db.network
+    depends_on:
+      - postgres
+    ports:
+      - "8200:8000" # Listener
+      - "8201:8001" # Admin API
+#      - "8443:8443" # Listener  (SSL)
+#      - "8444:8444" # Admin API (SSL)
+    environment:
+      KONG_DATABASE:         postgres
+      KONG_PG_HOST:          postgres
+      KONG_PG_PORT:          5432
+      KONG_PG_DATABASE:      kong
+      KONG_PG_USER:          kong
+      KONG_PG_PASSWORD:      kong
+
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG:  /dev/stderr
+      KONG_ADMIN_ERROR_LOG:  /dev/stderr
+      KONG_PROXY_LISTEN:     0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONG_ADMIN_LISTEN:     0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_PLUGINS:          oidc,zipkin
+
+#      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+      KONG_LUA_PACKAGE_PATH: /usr/local/kong/declarative/?.lua;;
+#    volumes:
+#      - ./kong/:/usr/local/kong/declarative
+#    command: 'kong migrations up'
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    depends_on:
+      - postgres
+    networks:
+      - test-bench.gw.network
+      - test-bench.srv.network
+      - test-bench.db.network
+    ports:
+      - "8180:8080"
+    environment:
+      DB_VENDOR:   POSTGRES
+      DB_ADDR:     postgres
+      DB_PORT:     5432
+      DB_DATABASE: keycloak
+      DB_USER:     keycloak
+      DB_PASSWORD: keycloak
+      DB_SCHEMA:   public
+      KEYCLOAK_USER:     admin
+      KEYCLOAK_PASSWORD: admin
