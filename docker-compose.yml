@@ -301,7 +301,7 @@ services:
       - redis
       - postgres
     ports:
-      - 9000:9000
+      - 8108:9000
     restart: always
     networks:
       - test-bench.srv.network
@@ -309,12 +309,17 @@ services:
     environment:
       SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
       SENTRY_POSTGRES_HOST: postgres
-      SENTRY_DB_USER: sentry
       SENTRY_DB_NAME: sentry
-      SENTRY_DB_PASSWORD: sentry
+      SENTRY_DB_USER: admin
+      SENTRY_DB_PASSWORD: password
       SENTRY_REDIS_HOST: redis
-#    command: sentry upgrade
-#    admin: password
+#      SENTRY_SERVER_EMAIL:
+#      SENTRY_EMAIL_HOST:
+#      SENTRY_EMAIL_PORT:
+#      SENTRY_EMAIL_USER:
+#      SENTRY_EMAIL_PASSWORD:
+#    command: >
+#      sh -c "sentry upgrade"
 
   sentry_cron:
     image: sentry:latest
@@ -397,6 +402,15 @@ services:
 #      - ./kong/:/usr/local/kong/declarative
 #    command: 'kong migrations up'
 
+# curl -s -X POST http://localhost:8201/services -d name=endpoint -d url=http://endpoint
+# curl -s -X POST http://localhost:8201/routes -d service.id=${service_id} -d paths[]=/
+# curl -s -X POST http://localhost:8201/routes -d service.id=6144a512-334e-4486-849c-86048fa1a81c -d paths[]=/
+# curl -s -X POST http://localhost:8201/plugins -d name=oidc -d config.client_id=kong -d config.client_secret=${CLIENT_SECRET} -d config.discovery=http://${HOST_IP}:8180/auth/realms/master/.well-known/openid-configuration
+# curl -s -X POST http://localhost:8201/plugins -d name=oidc -d config.client_id=kong -d config.client_secret=8b691465-4c8d-4215-9469-b971dbb10904 -d config.discovery=http://192.168.1.70:8180/auth/realms/master/.well-known/openid-configuration
+# curl -s -X POST http://localhost:8201/plugins -d name=zipkin -d "config.http_endpoint=http://zipkin:9411/api/v2/spans" -d "config.sample_ratio=1"
+
+
+# client secret: 8b691465-4c8d-4215-9469-b971dbb10904
   keycloak:
     image: quay.io/keycloak/keycloak:latest
     container_name: kc1
