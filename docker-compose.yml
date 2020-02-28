@@ -3,6 +3,22 @@ version: "3.7"
 x-restart-policy: &restart_policy
   restart: always
 
+x-sentry-defaults: &sentry_defaults
+  <<: *restart_policy
+  build:
+    context: ./sentry
+    args:
+      - SENTRY_IMAGE
+  image: sentry-onpremise-local
+  depends_on:
+    - redis
+    - postgres
+  networks:
+    - test-bench.srv.network
+    - test-bench.db.network
+  volumes:
+    - 'sentry-data:/data'
+
 networks:
   test-bench.gw.network:
     driver: bridge
@@ -21,6 +37,7 @@ volumes:
   es01: {}
   postgresql: {}
   postgresql_data: {}
+  sentry-data: {}
 
 services:
 
@@ -314,7 +331,6 @@ services:
       - postgres
     ports:
       - 8108:9000
-    restart: always
     networks:
       - test-bench.srv.network
       - test-bench.db.network
@@ -474,3 +490,26 @@ services:
       DB_SCHEMA:   public
       KEYCLOAK_USER:     admin
       KEYCLOAK_PASSWORD: admin
+
+  sentry-web:
+    << : *sentry_defaults
+    ports:
+      - '9000:9000/tcp'
+  sentry-cron:
+    << : *sentry_defaults
+    command: run cron
+  sentry-worker:
+    << : *sentry_defaults
+    command: run worker
+  sentry-post-process-forwarder:
+    << : *sentry_defaults
+    # Increase `--commit-batch-size 1` below to deal with high-load environments.
+    command: run post-process-forwarder --commit-batch-size 1
+  sentry-cleanup:
+    << : *sentry_defaults
+    image: sentry-cleanup-onpremise-local
+    build:
+      context: ./cron
+      args:
+        BASE_IMAGE: 'sentry-onpremise-local'
+    command: '"0 0 * * * gosu sentry sentry cleanup --days $SENTRY_EVENT_RETENTION_DAYS"'
