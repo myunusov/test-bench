@@ -1,5 +1,8 @@
 version: "3.7"
 
+x-restart-policy: &restart_policy
+  restart: always
+
 networks:
   test-bench.gw.network:
     driver: bridge
@@ -22,17 +25,18 @@ volumes:
 services:
 
   redis:
+    << : *restart_policy
     image: redis
     container_name: r01
     networks:
       - test-bench.db.network
 
   postgres:
+    << : *restart_policy
     build: ../postgres
     container_name: pg01
     networks:
       - test-bench.db.network
-    restart: always
     ports:
       - 5432:5432
     environment:
@@ -44,13 +48,13 @@ services:
       - postgresql_data:/var/lib/postgresql/data
 
   user:
+    << : *restart_policy
     build: ../user
     container_name: uss01
     links:
       - "postgres"
     depends_on:
       - postgres
-    restart: always
     networks:
       - test-bench.srv.network
       - test-bench.db.network
@@ -64,13 +68,13 @@ services:
         tag: service.logback.user
 
   endpoint:
+    << : *restart_policy
     build: ../endpoint
     container_name: eps01
     links:
       - "user"
     depends_on:
       - user
-    restart: always
     environment:
       SECRET: password
       BACKEND_URL: http://user:8080/
@@ -86,6 +90,7 @@ services:
         tag: service.logback.endpoint
 
   prometheus:
+    << : *restart_policy
     image: prom/prometheus
     container_name: p01
     volumes:
@@ -104,6 +109,7 @@ services:
     restart: always
 
   grafana:
+    << : *restart_policy
     image: grafana/grafana
     container_name: gr01
     links:
@@ -122,6 +128,7 @@ services:
     restart: always
 
   cadvisor:
+    << : *restart_policy
     image: google/cadvisor
     container_name: cad01
     volumes:
@@ -134,9 +141,10 @@ services:
     networks:
       - test-bench.srv.network
       - test-bench.metrics.network
-    restart: always
+
 
   alertmanager:
+    << : *restart_policy
     image: prom/alertmanager
     container_name: am01
     ports:
@@ -145,12 +153,12 @@ services:
       - ./alertmanager/:/etc/alertmanager/
     networks:
       - test-bench.metrics.network
-    restart: always
     command:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
 
   node-exporter:
+    << : *restart_policy
     image: prom/node-exporter
     container_name: ne01
     volumes:
@@ -167,9 +175,9 @@ services:
     networks:
       - test-bench.srv.network
       - test-bench.metrics.network
-    restart: always
 
   elasticsearch:
+    << : *restart_policy
     image: elasticsearch:7.6.0
     expose:
       - 9200
@@ -198,6 +206,7 @@ services:
 #        tag: service.efk.elasticsearch
 
   kibana:
+    << : *restart_policy
     image: kibana:7.6.0
     container_name: kb01
     links:
@@ -218,6 +227,7 @@ services:
 #        tag: service.efk.kibana
 
   fluentd:
+    << : *restart_policy
     build: ../fluentd
     container_name: fd01
     links:
@@ -241,6 +251,7 @@ services:
 
   # Switch storage type to Elasticsearch
   zipkin:
+    << : *restart_policy
     image: openzipkin/zipkin
     container_name: zp1
     links:
@@ -273,6 +284,7 @@ services:
   #
   # For more details, see https://github.com/openzipkin/docker-zipkin-dependencies
   zipkin-dependencies:
+    << : *restart_policy
     image: openzipkin/zipkin-dependencies
     container_name: zpd1
     links:
@@ -310,9 +322,10 @@ services:
       SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
       SENTRY_POSTGRES_HOST: postgres
       SENTRY_DB_NAME: sentry
-      SENTRY_DB_USER: admin
-      SENTRY_DB_PASSWORD: password
+      SENTRY_DB_USER: sentry
+      SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
+      SENTRY_SINGLE_ORGANIZATION: "true"
 #      SENTRY_SERVER_EMAIL:
 #      SENTRY_EMAIL_HOST:
 #      SENTRY_EMAIL_PORT:
@@ -320,6 +333,29 @@ services:
 #      SENTRY_EMAIL_PASSWORD:
 #    command: >
 #      sh -c "sentry upgrade"
+
+  sentry-init:
+    image: sentry
+    container_name: sn-init
+    links:
+      - redis
+      - postgres
+    depends_on:
+      - redis
+      - postgres
+    command: "sentry cleanup"
+    networks:
+      - test-bench.srv.network
+      - test-bench.db.network
+    environment:
+      SENTRY_SECRET_KEY: 'test-bench project sentry secret key 1234557890'
+      SENTRY_POSTGRES_HOST: postgres
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_USER: admin
+      SENTRY_DB_PASSWORD: password
+      SENTRY_REDIS_HOST: redis
+      SENTRY_SINGLE_ORGANIZATION: "true"
+
 
   sentry_cron:
     image: sentry:latest
@@ -341,6 +377,7 @@ services:
       SENTRY_DB_NAME: sentry
       SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
+      SENTRY_SINGLE_ORGANIZATION: "true"
 
   sentry_worker:
     image: sentry:latest
@@ -362,15 +399,16 @@ services:
       SENTRY_DB_NAME: sentry
       SENTRY_DB_PASSWORD: sentry
       SENTRY_REDIS_HOST: redis
+      SENTRY_SINGLE_ORGANIZATION: "true"
 
   kong:
+    << : *restart_policy
     build: ../kong
     container_name: kg1
     links:
       - postgres
     depends_on:
       - postgres
-    restart: always
     networks:
       - test-bench.gw.network
       - test-bench.srv.network
@@ -413,6 +451,7 @@ services:
 # client secret: 8b691465-4c8d-4215-9469-b971dbb10904
 # client secret: 4dd13833-2757-4955-8353-99c536715dc4
   keycloak:
+    << : *restart_policy
     image: quay.io/keycloak/keycloak:latest
     container_name: kc1
     links:
