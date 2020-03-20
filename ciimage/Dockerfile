@@ -11,3 +11,4 @@ ENV PGDATA /var/lib/postgresql/data
 USER postgres
 RUN initdb -A trust -D /var/lib/postgresql/data
 COPY ./postgres/postgresql.conf /var/lib/postgresql/data/postgresql.conf
+USER root
