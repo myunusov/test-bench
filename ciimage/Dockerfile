@@ -1,6 +1,6 @@
 FROM adoptopenjdk/openjdk11:jdk-11.0.5_10-alpine as builder
 RUN apk update && \
-    apk add su-exec tzdata libpq postgresql-client postgresql postgresql-contrib && \
+    apk add curl su-exec tzdata libpq postgresql-client postgresql postgresql-contrib && \
     rm -rf /var/cache/apk/*
 
 ENV POSTGRES_USER postgres
