@@ -54,16 +54,14 @@ services:
     networks:
       - test-bench.srv.network
       - test-bench.db.network
-    ports:
-      - 8001:8080
-#    logging:
-#      driver: "fluentd"
-#      options:
-#        fluentd-address: localhost:24224
-#        fluentd-async-connect: 'true'
-#        fluentd-retry-wait: '1s'
-#        fluentd-max-retries: '30'
-#        tag: service.logback.user
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        fluentd-async-connect: 'true'
+        fluentd-retry-wait: '1s'
+        fluentd-max-retries: '30'
+        tag: service.logback.user
 
   endpoint:
     build: ../endpoint
